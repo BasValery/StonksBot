@@ -1,3 +1,5 @@
+using StonksBot.Interfaces;
+using StonksBot.Services;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -9,13 +11,18 @@ namespace Telegram.Bot.Examples.WebHook.Services;
 
 public class HandleUpdateService
 {
-    private readonly ITelegramBotClient _botClient;
-    private readonly ILogger<HandleUpdateService> _logger;
+    private readonly ITelegramBotClient botClient;
+    private readonly ILogger<HandleUpdateService> logger;
+    private readonly IMarketInfoApiService marketInfoApiService;
 
-    public HandleUpdateService(ITelegramBotClient botClient, ILogger<HandleUpdateService> logger)
+    public HandleUpdateService(
+        ITelegramBotClient botClient,
+        ILogger<HandleUpdateService> logger,
+        IMarketInfoApiService marketInfoApiService )
     {
-        _botClient = botClient;
-        _logger = logger;
+        this.botClient = botClient;
+        this.logger = logger;
+        this.marketInfoApiService = marketInfoApiService;
     }
 
     public async Task EchoAsync(Update update)
@@ -46,19 +53,23 @@ public class HandleUpdateService
 
     private async Task BotOnMessageReceived(Message message)
     {
-        _logger.LogInformation("Receive message type: {MessageType}", message.Type);
+        logger.LogInformation("Receive message type: {MessageType}", message.Type);
         if (message.Type != MessageType.Text)
             return;
 
+        if (message.Text == null)
+            return;
 
-        await _botClient.SendTextMessageAsync(chatId: message.Chat.Id,
-                                                 text: $"I've got your messahe: \"{message.Text}\"");
+        var marketData = await marketInfoApiService.GetStockInfo(message.Text);
+
+        await botClient.SendTextMessageAsync(chatId: message.Chat.Id,
+                                                 text: $"Price: {marketData.Price.ToString("0.00")}");
 
     }
 
     private Task UnknownUpdateHandlerAsync(Update update)
     {
-        _logger.LogInformation("Unknown update type: {UpdateType}", update.Type);
+        logger.LogInformation("Unknown update type: {UpdateType}", update.Type);
         return Task.CompletedTask;
     }
 
@@ -70,7 +81,7 @@ public class HandleUpdateService
             _ => exception.ToString()
         };
 
-        _logger.LogInformation("HandleError: {ErrorMessage}", ErrorMessage);
+        logger.LogInformation("HandleError: {ErrorMessage}", ErrorMessage);
         return Task.CompletedTask;
     }
 }

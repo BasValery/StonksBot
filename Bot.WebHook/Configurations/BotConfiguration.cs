@@ -1,4 +1,4 @@
-namespace Telegram.Bot.Examples.WebHook;
+namespace StonksBot.Configurations;
 
 public class BotConfiguration
 {
